@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  /* Styria Estate brand palette: deep slate-teal + warm taupe/gold */
+  --stone: #faf8f5;
+  --stone-dim: #f0ece4;
+  --ink: #26333a;
+  --ink-soft: #667078;
+  --forest: #26333a;
+  --forest-light: #3d4f58;
+  --sage: #a9bdbf;
+  --gold: #b19e8c;
+  --gold-light: #cabba9;
+  --clay: #a8603f;
+  --line: #e4dcd0;
+  --card: #ffffff;
+  --available: #f3eee6;
+  --available-border: #ddcdb8;
+  --reserved: #26333a;
+  --reserved-text: #faf8f5;
+  --closed: #ece6db;
+}
+
+@theme inline {
+  --color-stone: var(--stone);
+  --color-stone-dim: var(--stone-dim);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-forest: var(--forest);
+  --color-forest-light: var(--forest-light);
+  --color-sage: var(--sage);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-clay: var(--clay);
+  --color-line: var(--line);
+  --color-card: var(--card);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+}
+
+.font-display {
+  font-family: var(--font-display), serif;
+}
