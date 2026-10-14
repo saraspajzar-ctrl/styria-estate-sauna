@@ -9,7 +9,6 @@ const updateSchema = z.object({
   reservationDate: z.string().refine(isValidISODate),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   durationMinutes: z.number().int(),
-  numberOfGuests: z.number().int(),
 });
 
 export async function PATCH(
@@ -33,7 +32,6 @@ export async function PATCH(
       reservationDate: parsed.data.reservationDate,
       startTime: parsed.data.startTime,
       durationMinutes: parsed.data.durationMinutes,
-      numberOfGuests: parsed.data.numberOfGuests,
     });
     return NextResponse.json({ reservation });
   } catch (err) {

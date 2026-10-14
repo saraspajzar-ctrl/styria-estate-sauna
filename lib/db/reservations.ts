@@ -9,7 +9,6 @@ export type BookInput = {
   reservationDate: string;
   startTime: string;
   durationMinutes: number;
-  numberOfGuests: number;
   isAdmin?: boolean;
   adminUserId?: string;
 };
@@ -23,7 +22,6 @@ export async function bookReservation(input: BookInput): Promise<Reservation> {
     p_reservation_date: input.reservationDate,
     p_start_time: input.startTime,
     p_duration_minutes: input.durationMinutes,
-    p_number_of_guests: input.numberOfGuests,
     p_is_admin: input.isAdmin ?? false,
     p_admin_user_id: input.adminUserId ?? null,
   });
@@ -37,7 +35,6 @@ export type UpdateInput = {
   reservationDate: string;
   startTime: string;
   durationMinutes: number;
-  numberOfGuests: number;
   isAdmin?: boolean;
   adminUserId?: string;
 };
@@ -50,7 +47,6 @@ export async function updateReservation(input: UpdateInput): Promise<Reservation
     p_reservation_date: input.reservationDate,
     p_start_time: input.startTime,
     p_duration_minutes: input.durationMinutes,
-    p_number_of_guests: input.numberOfGuests,
     p_is_admin: input.isAdmin ?? false,
     p_admin_user_id: input.adminUserId ?? null,
   });
@@ -79,7 +75,7 @@ export async function listReservationsForStay(stayId: string): Promise<Reservati
   const { data, error } = await supabase
     .from("sauna_reservations")
     .select(
-      "id, stay_id, resource_id, apartment_id, reservation_date, start_time, end_time, duration_minutes, number_of_guests, status, created_at"
+      "id, stay_id, resource_id, apartment_id, reservation_date, start_time, end_time, duration_minutes, status, created_at"
     )
     .eq("stay_id", stayId)
     .eq("status", "active")

@@ -31,7 +31,6 @@ export default function AdminSchedulePage() {
     stayId: "",
     startTime: "08:00",
     durationMinutes: 60,
-    numberOfGuests: 1,
   });
 
   useEffect(() => {
@@ -91,7 +90,6 @@ export default function AdminSchedulePage() {
       reservationDate: date,
       startTime: form.startTime,
       durationMinutes: form.durationMinutes,
-      numberOfGuests: form.numberOfGuests,
     };
 
     const url = editingId ? `/api/admin/reservations/${editingId}` : "/api/admin/reservations";
@@ -122,7 +120,6 @@ export default function AdminSchedulePage() {
       stayId: r.stay_id,
       startTime: r.start_time.slice(0, 5),
       durationMinutes: r.duration_minutes,
-      numberOfGuests: r.number_of_guests,
     });
     setFormError(null);
     setNotice(null);
@@ -222,24 +219,6 @@ export default function AdminSchedulePage() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-widest text-ink-soft">
-                  Guests
-                </label>
-                <select
-                  value={form.numberOfGuests}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, numberOfGuests: Number(e.target.value) }))
-                  }
-                  className="w-full rounded-xl border border-line bg-stone px-3 py-2.5 text-sm outline-none focus:border-forest"
-                >
-                  {[1, 2, 3, 4].map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
-              </div>
               <p className="text-xs text-ink-soft">
                 {form.startTime} – {endTime}
                 {allowance && ` · ${formatMinutesLabel(allowance.remainingMinutes)} remaining today for this stay`}
@@ -288,10 +267,7 @@ export default function AdminSchedulePage() {
                         {r.start_time.slice(0, 5)}–{r.end_time.slice(0, 5)}
                       </span>
                     </div>
-                    <p className="text-ink-soft">
-                      {r.guest_surname} · {r.number_of_guests} guest
-                      {r.number_of_guests > 1 ? "s" : ""}
-                    </p>
+                    <p className="text-ink-soft">{r.guest_surname}</p>
                     <div className="mt-2 flex gap-2">
                       <Button
                         variant="secondary"

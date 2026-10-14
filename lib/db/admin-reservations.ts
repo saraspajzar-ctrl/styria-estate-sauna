@@ -18,7 +18,6 @@ type Row = {
   start_time: string;
   end_time: string;
   duration_minutes: number;
-  number_of_guests: number;
   status: string;
   created_at: string;
   apartments: { name: string } | { name: string }[] | null;
@@ -32,7 +31,7 @@ export async function listAdminReservations(
   let query = supabase
     .from("sauna_reservations")
     .select(
-      "id, stay_id, resource_id, apartment_id, reservation_date, start_time, end_time, duration_minutes, number_of_guests, status, created_at, apartments(name), stays(guest_surname)"
+      "id, stay_id, resource_id, apartment_id, reservation_date, start_time, end_time, duration_minutes, status, created_at, apartments(name), stays(guest_surname)"
     )
     .order("reservation_date", { ascending: false })
     .order("start_time", { ascending: true });

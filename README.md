@@ -31,8 +31,8 @@ scripts/run-tests.ts        acceptance tests against the real database
 ```
 
 **Why business logic lives in SQL functions, not application code:** every
-booking rule (overlap, the 120-minute daily cap per stay, operating hours,
-guest count) is enforced inside `book_sauna_reservation` /
+booking rule (overlap, the 120-minute daily cap per stay, operating hours)
+is enforced inside `book_sauna_reservation` /
 `update_sauna_reservation` / `cancel_sauna_reservation` in
 `supabase/migrations/0003_functions.sql`, each running as one Postgres
 transaction that row-locks the stay before checking its daily total. A
@@ -145,8 +145,8 @@ far-future dates as fixtures and cleaning up after themselves. Covers: the
 shared 120-minute stay allowance, overlap prevention across apartments,
 concurrent-request safety (both for overlap and for the daily cap),
 cancellation releasing allowance, stay-window and operating-hours
-boundaries, the 4-guest cap, access-code isolation between stays, code
-revocation, rate limiting, and Ljubljana-timezone date handling.
+boundaries, access-code isolation between stays, code revocation, rate
+limiting, and Ljubljana-timezone date handling.
 
 Set `TEST_BASE_URL=http://localhost:3000` (with `npm run dev` running in
 another terminal) to additionally check that admin API routes reject
@@ -168,7 +168,7 @@ migrated schema.
 
 Everything in `lib/config.ts` is mirrored client-side for UX only; the
 authoritative values live in `supabase/migrations/0003_functions.sql`
-(duration limits, guest cap, operating hours) and the `resources` /
+(duration limits, operating hours) and the `resources` /
 `apartments` tables (capacity, open/close time — edit via SQL or add an
 admin UI for it later). To add a third apartment, insert a row into
 `apartments`; nothing in the codebase hardcodes apartment names or count. To

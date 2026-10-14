@@ -2,7 +2,7 @@
 
 import { ScheduleSlot } from "@/lib/types";
 
-type GuestInfoSlot = ScheduleSlot & { guestSurname?: string; numberOfGuests?: number };
+type GuestInfoSlot = ScheduleSlot & { guestSurname?: string };
 
 type Row =
   | { kind: "available"; time: string; disabled: boolean; isPreview: boolean }
@@ -13,7 +13,6 @@ type Row =
       span: number;
       apartmentName: string;
       guestSurname?: string;
-      numberOfGuests?: number;
       isMine: boolean;
     };
 
@@ -39,7 +38,6 @@ function groupRows(
           span,
           apartmentName: slot.apartmentName ?? "Reserved",
           guestSurname: slot.guestSurname,
-          numberOfGuests: slot.numberOfGuests,
           isMine: !!slot.isMine,
         });
       }
@@ -137,13 +135,8 @@ export function SaunaTimeline({
                 <span className="text-xs font-bold uppercase tracking-widest">
                   {row.apartmentName}
                 </span>
-                {(row.guestSurname || row.numberOfGuests) && (
-                  <span className="text-[11px] opacity-80">
-                    {row.guestSurname ? `${row.guestSurname} · ` : ""}
-                    {row.numberOfGuests
-                      ? `${row.numberOfGuests} guest${row.numberOfGuests > 1 ? "s" : ""}`
-                      : ""}
-                  </span>
+                {row.guestSurname && (
+                  <span className="text-[11px] opacity-80">{row.guestSurname}</span>
                 )}
               </div>
             </div>

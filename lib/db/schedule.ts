@@ -55,14 +55,12 @@ type AdminReservationRow = {
   start_time: string;
   end_time: string;
   apartment_id: string;
-  number_of_guests: number;
   apartments: { name: string } | null;
   stays: { guest_surname: string } | null;
 };
 
 export type AdminScheduleSlot = ScheduleSlot & {
   guestSurname?: string;
-  numberOfGuests?: number;
 };
 
 /** Admin view: same timeline, but reveals guest surname and guest count. */
@@ -82,7 +80,7 @@ export async function getAdminSchedule(
   const { data: reservations, error: reservationsError } = await supabase
     .from("sauna_reservations")
     .select(
-      "id, stay_id, start_time, end_time, apartment_id, number_of_guests, apartments(name), stays(guest_surname)"
+      "id, stay_id, start_time, end_time, apartment_id, apartments(name), stays(guest_surname)"
     )
     .eq("resource_id", resourceId)
     .eq("reservation_date", date)
@@ -108,7 +106,6 @@ export async function getAdminSchedule(
         status: "reserved",
         apartmentName: match.apartments?.name,
         guestSurname: match.stays?.guest_surname,
-        numberOfGuests: match.number_of_guests,
         reservationId: match.id,
         isReservationStart: match.start_time.slice(0, 5) === time,
       });

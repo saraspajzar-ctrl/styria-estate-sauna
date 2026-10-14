@@ -93,7 +93,6 @@ function book(input: {
   date: string;
   startTime: string;
   durationMinutes: number;
-  numberOfGuests: number;
 }) {
   return supabase.rpc("book_sauna_reservation", {
     p_stay_id: input.stayId,
@@ -101,7 +100,6 @@ function book(input: {
     p_reservation_date: input.date,
     p_start_time: input.startTime,
     p_duration_minutes: input.durationMinutes,
-    p_number_of_guests: input.numberOfGuests,
     p_is_admin: false,
     p_admin_user_id: null,
   });
@@ -148,7 +146,6 @@ async function main() {
       date: testDate,
       startTime: "09:00",
       durationMinutes: 60,
-      numberOfGuests: 6 > 4 ? 4 : 6, // sauna cap is 4 regardless of accommodation headcount
     });
     assert.equal(first.error, null, `first booking should succeed: ${first.error?.message}`);
     fixture.reservationIds.push(first.data.id);
@@ -159,7 +156,6 @@ async function main() {
       date: testDate,
       startTime: "10:00",
       durationMinutes: 60,
-      numberOfGuests: 4,
     });
     assert.equal(second.error, null, `second booking should succeed: ${second.error?.message}`);
     fixture.reservationIds.push(second.data.id);
@@ -172,7 +168,6 @@ async function main() {
       date: testDate,
       startTime: "11:00",
       durationMinutes: 30,
-      numberOfGuests: 1,
     });
     assert.equal(errCode(third.error), "DAILY_LIMIT_EXCEEDED");
   });
@@ -186,7 +181,6 @@ async function main() {
       date: testDate,
       startTime: "12:00",
       durationMinutes: 90,
-      numberOfGuests: 2,
     });
     assert.equal(a.error, null);
     fixture.reservationIds.push(a.data.id);
@@ -199,7 +193,6 @@ async function main() {
       date: testDate,
       startTime: "14:00",
       durationMinutes: 60,
-      numberOfGuests: 1,
     });
     assert.equal(errCode(b.error), "DAILY_LIMIT_EXCEEDED");
   });
@@ -215,7 +208,6 @@ async function main() {
       date: testDate,
       startTime: "16:00",
       durationMinutes: 90,
-      numberOfGuests: 2,
     });
     assert.equal(a.error, null);
     fixture.reservationIds.push(a.data.id);
@@ -226,7 +218,6 @@ async function main() {
       date: testDate,
       startTime: "17:00", // overlaps 16:00-17:30
       durationMinutes: 60,
-      numberOfGuests: 2,
     });
     assert.equal(errCode(b.error), "SLOT_UNAVAILABLE");
   });
@@ -243,7 +234,6 @@ async function main() {
         date: testDate,
         startTime: "19:00",
         durationMinutes: 60,
-        numberOfGuests: 2,
       }),
       book({
         stayId: stayB.id,
@@ -251,7 +241,6 @@ async function main() {
         date: testDate,
         startTime: "19:00",
         durationMinutes: 60,
-        numberOfGuests: 2,
       }),
     ]);
 
@@ -278,7 +267,6 @@ async function main() {
         date: testDate,
         startTime: "06:00",
         durationMinutes: 90,
-        numberOfGuests: 1,
       }),
       book({
         stayId: stay.id,
@@ -286,7 +274,6 @@ async function main() {
         date: testDate,
         startTime: "08:00",
         durationMinutes: 90,
-        numberOfGuests: 1,
       }),
     ]);
 
@@ -307,7 +294,6 @@ async function main() {
       date: testDate,
       startTime: "13:00",
       durationMinutes: 60,
-      numberOfGuests: 2,
     });
     assert.equal(a.error, null);
 
@@ -326,7 +312,6 @@ async function main() {
       date: testDate,
       startTime: "13:00",
       durationMinutes: 120,
-      numberOfGuests: 2,
     });
     assert.equal(rebook.error, null, `rebooking after cancellation should succeed: ${rebook.error?.message}`);
     fixture.reservationIds.push(rebook.data.id);
@@ -341,7 +326,6 @@ async function main() {
       date: "2099-07-09",
       startTime: "10:00",
       durationMinutes: 30,
-      numberOfGuests: 1,
     });
     assert.equal(errCode(beforeCheckIn.error), "OUTSIDE_STAY");
 
@@ -351,7 +335,6 @@ async function main() {
       date: "2099-07-13",
       startTime: "10:00",
       durationMinutes: 30,
-      numberOfGuests: 1,
     });
     assert.equal(errCode(onCheckOutDay.error), "OUTSIDE_STAY");
 
@@ -361,7 +344,6 @@ async function main() {
       date: "2099-07-10",
       startTime: "10:00",
       durationMinutes: 30,
-      numberOfGuests: 1,
     });
     assert.equal(onCheckInDay.error, null, "the check-in day itself must be bookable");
     fixture.reservationIds.push(onCheckInDay.data.id);
@@ -376,7 +358,6 @@ async function main() {
       date: "2099-06-18",
       startTime: "05:30",
       durationMinutes: 30,
-      numberOfGuests: 1,
     });
     assert.equal(errCode(tooEarly.error), "OUTSIDE_HOURS");
 
@@ -386,7 +367,6 @@ async function main() {
       date: "2099-06-18",
       startTime: "21:30",
       durationMinutes: 60, // would end at 22:30
-      numberOfGuests: 1,
     });
     assert.equal(errCode(tooLate.error), "OUTSIDE_HOURS");
 
@@ -396,24 +376,9 @@ async function main() {
       date: "2099-06-18",
       startTime: "21:00",
       durationMinutes: 60, // ends exactly at 22:00 — allowed
-      numberOfGuests: 1,
     });
     assert.equal(exactlyAtClose.error, null, "a reservation ending exactly at close time must be allowed");
     fixture.reservationIds.push(exactlyAtClose.data.id);
-  });
-
-  await test("more than four sauna users are rejected", async () => {
-    const testDate = freshDate();
-    const { stay } = await createStay(apartmentA, "2099-06-10", "2099-06-20");
-    const tooMany = await book({
-      stayId: stay.id,
-      resourceId,
-      date: testDate,
-      startTime: "15:00",
-      durationMinutes: 30,
-      numberOfGuests: 5,
-    });
-    assert.equal(errCode(tooMany.error), "INVALID_GUESTS");
   });
 
   await test("a stay's access code cannot be used to look up a different stay", async () => {
@@ -482,7 +447,6 @@ async function main() {
       date: "2099-06-19",
       startTime: "06:00",
       durationMinutes: 30,
-      numberOfGuests: 1,
     });
     assert.equal(result.error, null);
     fixture.reservationIds.push(result.data.id);

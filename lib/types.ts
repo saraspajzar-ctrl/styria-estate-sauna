@@ -47,7 +47,6 @@ export type Reservation = {
   start_time: string;
   end_time: string;
   duration_minutes: number;
-  number_of_guests: number;
   status: ReservationStatus;
   created_at: string;
 };
@@ -55,7 +54,7 @@ export type Reservation = {
 /** Reservation as returned to the guest for their own stay. */
 export type GuestReservation = Pick<
   Reservation,
-  "id" | "reservation_date" | "start_time" | "end_time" | "duration_minutes" | "number_of_guests"
+  "id" | "reservation_date" | "start_time" | "end_time" | "duration_minutes"
 >;
 
 /** Reservation as returned to the admin, with apartment/surname context. */

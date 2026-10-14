@@ -116,7 +116,7 @@ export default function SaunaPage() {
     setView("gate");
   }
 
-  async function submitReservation(durationMinutes: number, numberOfGuests: number) {
+  async function submitReservation(durationMinutes: number) {
     if (!draftStart) return "Something went wrong.";
 
     const isEdit = !!editing;
@@ -129,7 +129,6 @@ export default function SaunaPage() {
         reservationDate: selectedDate,
         startTime: draftStart,
         durationMinutes,
-        numberOfGuests,
       }),
     });
     const data = await res.json();
@@ -304,7 +303,6 @@ export default function SaunaPage() {
             slots={slots}
             allowance={allowance}
             initialDuration={editing?.duration_minutes}
-            initialGuests={editing?.number_of_guests}
             onCancel={closePanel}
             onSubmit={submitReservation}
           />
@@ -333,8 +331,7 @@ export default function SaunaPage() {
                     {formatDisplayDate(r.reservation_date)}
                   </p>
                   <p className="text-xs text-ink-soft">
-                    {r.start_time.slice(0, 5)} – {r.end_time.slice(0, 5)} · {r.number_of_guests}{" "}
-                    guest{r.number_of_guests > 1 ? "s" : ""}
+                    {r.start_time.slice(0, 5)} – {r.end_time.slice(0, 5)}
                   </p>
                 </div>
                 <div className="flex gap-2">

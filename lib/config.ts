@@ -6,7 +6,6 @@
 export const TIMEZONE = "Europe/Ljubljana";
 export const MAX_DAILY_MINUTES_PER_STAY = 120; // 2 hours / stay / calendar day
 export const ALLOWED_DURATIONS_MINUTES = [30, 60, 90, 120] as const;
-export const MAX_GUESTS_PER_RESERVATION = 4; // sauna capacity ceiling
 export const SLOT_INCREMENT_MINUTES = 30;
 
 // The check-in day is eligible for sauna reservations; the check-out day is

@@ -20,7 +20,6 @@ export function parseDbError(error: { message?: string; details?: string | null 
 
 const STATUS_BY_CODE: Record<string, number> = {
   INVALID_DURATION: 400,
-  INVALID_GUESTS: 400,
   INVALID_START_TIME: 400,
   INVALID_DATES: 400,
   STAY_NOT_FOUND: 404,

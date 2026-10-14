@@ -15,9 +15,8 @@ type Props = {
   slots: ScheduleSlot[];
   allowance: DailyAllowance;
   initialDuration?: number;
-  initialGuests?: number;
   onCancel: () => void;
-  onSubmit: (durationMinutes: number, numberOfGuests: number) => Promise<string | null>;
+  onSubmit: (durationMinutes: number) => Promise<string | null>;
 };
 
 function formatMinutesLabel(mins: number): string {
@@ -36,15 +35,11 @@ export function BookingPanel({
   slots,
   allowance,
   initialDuration,
-  initialGuests,
   onCancel,
   onSubmit,
 }: Props) {
-  const [step, setStep] = useState<"duration" | "guests" | "confirm" | "success">(
-    "duration"
-  );
+  const [step, setStep] = useState<"duration" | "confirm" | "success">("duration");
   const [duration, setDuration] = useState<number | null>(initialDuration ?? null);
-  const [guests, setGuests] = useState<number | null>(initialGuests ?? null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,10 +68,10 @@ export function BookingPanel({
   }, [startTime, slotsByTime, allowance.remainingMinutes]);
 
   async function handleConfirm() {
-    if (!duration || !guests) return;
+    if (!duration) return;
     setSubmitting(true);
     setError(null);
-    const err = await onSubmit(duration, guests);
+    const err = await onSubmit(duration);
     setSubmitting(false);
     if (err) {
       setError(err);
@@ -140,48 +135,13 @@ export function BookingPanel({
               {apartmentName}.
             </p>
           )}
-          <Button
-            className="w-full"
-            disabled={!duration}
-            onClick={() => setStep("guests")}
-          >
+          <Button className="w-full" disabled={!duration} onClick={() => setStep("confirm")}>
             Continue
           </Button>
         </div>
       )}
 
-      {step === "guests" && (
-        <div className="space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-widest text-ink-soft">
-            How many guests will use the sauna?
-          </p>
-          <div className="grid grid-cols-4 gap-3">
-            {[1, 2, 3, 4].map((g) => (
-              <button
-                key={g}
-                onClick={() => setGuests(g)}
-                className={`rounded-xl border py-3 text-lg font-semibold transition-colors ${
-                  guests === g
-                    ? "border-forest bg-forest text-stone"
-                    : "border-line bg-stone hover:border-forest"
-                }`}
-              >
-                {g}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setStep("duration")}>
-              Back
-            </Button>
-            <Button className="flex-1" disabled={!guests} onClick={() => setStep("confirm")}>
-              Continue
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {step === "confirm" && duration && guests && endTime && (
+      {step === "confirm" && duration && endTime && (
         <div className="space-y-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-ink-soft">
             Sauna Reservation
@@ -212,10 +172,6 @@ export function BookingPanel({
                 <dt className="text-ink-soft">Duration</dt>
                 <dd className="font-semibold text-ink">{formatMinutesLabel(duration)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-ink-soft">Guests</dt>
-                <dd className="font-semibold text-ink">{guests}</dd>
-              </div>
             </dl>
           </div>
           <div className="rounded-xl border border-line px-4 py-3 text-xs text-ink-soft">
@@ -234,7 +190,7 @@ export function BookingPanel({
               variant="secondary"
               className="flex-1"
               disabled={submitting}
-              onClick={() => setStep("guests")}
+              onClick={() => setStep("duration")}
             >
               Back
             </Button>
@@ -256,7 +212,6 @@ export function BookingPanel({
             <p className="text-ink-soft">
               {startTime} – {endTime}
             </p>
-            <p className="text-ink-soft">{guests} guest(s)</p>
           </div>
           <Button className="w-full" onClick={onCancel}>
             Done
