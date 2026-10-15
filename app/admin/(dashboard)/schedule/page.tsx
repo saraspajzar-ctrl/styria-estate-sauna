@@ -29,7 +29,7 @@ export default function AdminSchedulePage() {
 
   const [form, setForm] = useState({
     stayId: "",
-    startTime: "08:00",
+    startTime: "16:00",
     durationMinutes: 60,
   });
 

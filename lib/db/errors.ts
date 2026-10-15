@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * The SQL functions in supabase/migrations/0003_functions.sql raise errors
+ * The SQL functions in supabase/migrations/*_functions.sql raise errors
  * shaped as "CODE: human-readable message". Supabase surfaces that full
  * string as `error.message` (and often restates it in `error.details`).
  * This extracts a clean {code, message} pair for API responses.
@@ -27,6 +27,7 @@ const STATUS_BY_CODE: Record<string, number> = {
   OUTSIDE_STAY: 400,
   RESOURCE_NOT_FOUND: 404,
   OUTSIDE_HOURS: 400,
+  LEAD_TIME_REQUIRED: 400,
   DAILY_LIMIT_EXCEEDED: 409,
   SLOT_UNAVAILABLE: 409,
   RESERVATION_NOT_FOUND: 404,

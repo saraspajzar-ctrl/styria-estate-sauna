@@ -6,8 +6,8 @@ import { AllowanceCard } from "@/components/AllowanceCard";
 import { BookingPanel } from "@/components/BookingPanel";
 import { Button } from "@/components/Button";
 import { SaunaTimeline } from "@/components/SaunaTimeline";
-import { INCLUDE_CHECKOUT_DAY, TIMEZONE } from "@/lib/config";
-import { datesInStay, formatDisplayDate, todayInTimeZone } from "@/lib/time";
+import { INCLUDE_CHECKOUT_DAY, MIN_ADVANCE_DAYS, TIMEZONE } from "@/lib/config";
+import { addDaysISO, datesInStay, formatDisplayDate, todayInTimeZone } from "@/lib/time";
 import { DailyAllowance, GuestReservation, GuestStayView, ScheduleSlot } from "@/lib/types";
 
 type ViewState = "loading" | "gate" | "dashboard";
@@ -44,16 +44,18 @@ export default function SaunaPage() {
     loadMe();
   }, [loadMe]);
 
-  const dates = useMemo(
-    () => (stay ? datesInStay(stay.checkIn, stay.checkOut, INCLUDE_CHECKOUT_DAY) : []),
-    [stay]
-  );
+  const dates = useMemo(() => {
+    if (!stay) return [];
+    const earliestBookable = addDaysISO(todayInTimeZone(TIMEZONE), MIN_ADVANCE_DAYS);
+    return datesInStay(stay.checkIn, stay.checkOut, INCLUDE_CHECKOUT_DAY).filter(
+      (d) => d >= earliestBookable
+    );
+  }, [stay]);
 
   useEffect(() => {
     if (dates.length > 0 && !selectedDate) {
-      const today = todayInTimeZone(TIMEZONE);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- deriving initial date selection once stay is known
-      setSelectedDate(dates.includes(today) ? today : dates[0]);
+      setSelectedDate(dates[0]);
     }
   }, [dates, selectedDate]);
 
@@ -261,55 +263,68 @@ export default function SaunaPage() {
         </section>
       )}
 
-      <section className="mb-6">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-soft">
-          Select a date
-        </p>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {dates.map((d) => (
-            <button
-              key={d}
-              onClick={() => {
-                setSelectedDate(d);
-                closePanel();
-              }}
-              className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
-                d === selectedDate
-                  ? "border-forest bg-forest text-stone"
-                  : "border-line bg-card text-ink hover:border-forest"
-              }`}
-            >
-              {formatDisplayDate(d).replace(/, \d{4}$/, "")}
-            </button>
-          ))}
-        </div>
-      </section>
+      {dates.length === 0 ? (
+        <section className="mb-8">
+          <p className="rounded-2xl border border-line bg-card p-5 text-sm text-ink-soft">
+            Sauna reservations must be made at least {MIN_ADVANCE_DAYS} day in advance. There are
+            no bookable dates left for this stay.
+          </p>
+        </section>
+      ) : (
+        <>
+          <section className="mb-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-soft">
+              Select a date
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {dates.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => {
+                    setSelectedDate(d);
+                    closePanel();
+                  }}
+                  className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ${
+                    d === selectedDate
+                      ? "border-forest bg-forest text-stone"
+                      : "border-line bg-card text-ink hover:border-forest"
+                  }`}
+                >
+                  {formatDisplayDate(d).replace(/, \d{4}$/, "")}
+                </button>
+              ))}
+            </div>
+          </section>
 
-      {actionError && (
-        <p className="mb-4 rounded-xl bg-clay/10 px-4 py-2.5 text-sm text-clay">{actionError}</p>
+          {actionError && (
+            <p className="mb-4 rounded-xl bg-clay/10 px-4 py-2.5 text-sm text-clay">
+              {actionError}
+            </p>
+          )}
+
+          <section className="mb-8">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-soft">
+              Sauna Availability
+            </p>
+            {draftStart && allowance ? (
+              <BookingPanel
+                mode={editing ? "edit" : "create"}
+                apartmentName={stay.apartmentName}
+                surname=""
+                date={selectedDate}
+                startTime={draftStart}
+                slots={slots}
+                allowance={allowance}
+                initialDuration={editing?.duration_minutes}
+                onCancel={closePanel}
+                onSubmit={submitReservation}
+              />
+            ) : (
+              <SaunaTimeline slots={slots} onSelectTime={(time) => setDraftStart(time)} />
+            )}
+          </section>
+        </>
       )}
-
-      <section className="mb-8">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-soft">
-          Sauna Availability
-        </p>
-        {draftStart && allowance ? (
-          <BookingPanel
-            mode={editing ? "edit" : "create"}
-            apartmentName={stay.apartmentName}
-            surname=""
-            date={selectedDate}
-            startTime={draftStart}
-            slots={slots}
-            allowance={allowance}
-            initialDuration={editing?.duration_minutes}
-            onCancel={closePanel}
-            onSubmit={submitReservation}
-          />
-        ) : (
-          <SaunaTimeline slots={slots} onSelectTime={(time) => setDraftStart(time)} />
-        )}
-      </section>
 
       <section>
         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-soft">

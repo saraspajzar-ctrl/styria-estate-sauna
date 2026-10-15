@@ -65,6 +65,12 @@ export function parseISODate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
+export function addDaysISO(iso: string, days: number): string {
+  const d = parseISODate(iso);
+  d.setDate(d.getDate() + days);
+  return dateToISO(d);
+}
+
 export function isValidISODate(iso: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
   const d = parseISODate(iso);

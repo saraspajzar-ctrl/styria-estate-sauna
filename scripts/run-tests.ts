@@ -1,4 +1,4 @@
-// Acceptance tests for the business rules in supabase/migrations/0003_functions.sql.
+// Acceptance tests for the business rules in supabase/migrations/*_functions.sql.
 //
 // These are integration tests that run against the REAL provisioned Supabase
 // database (the same one the app uses) — the whole point of pushing the
@@ -13,6 +13,8 @@ import { createClient } from "@supabase/supabase-js";
 import { createHmac } from "crypto";
 import assert from "node:assert/strict";
 import { Client as PgClient } from "pg";
+import { addDaysISO, todayInTimeZone } from "../lib/time";
+import { TIMEZONE } from "../lib/config";
 
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -51,8 +53,33 @@ async function test(name: string, fn: () => Promise<void>) {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-type Fixture = { stayIds: string[]; reservationIds: string[] };
-const fixture: Fixture = { stayIds: [], reservationIds: [] };
+type Fixture = { stayIds: string[]; reservationIds: string[]; resourceIds: string[] };
+const fixture: Fixture = { stayIds: [], reservationIds: [], resourceIds: [] };
+
+/**
+ * A disposable, isolated resource for tests that must book real near-term
+ * dates (today/tomorrow) to exercise the lead-time rule. Using a throwaway
+ * resource — rather than the real shared sauna — means these assertions can
+ * never collide with, or become momentarily visible alongside, an actual
+ * guest's reservation on the live sauna calendar. Open 24h so time-of-day
+ * never interferes with what's being tested.
+ */
+async function createTestResource(): Promise<string> {
+  const { data, error } = await supabase
+    .from("resources")
+    .insert({
+      name: `Test Resource ${Math.random().toString(36).slice(2, 10)}`,
+      capacity: 4,
+      open_time: "00:00",
+      close_time: "23:30",
+      active: true,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  fixture.resourceIds.push(data.id);
+  return data.id;
+}
 
 async function getApartmentIds(): Promise<string[]> {
   const { data, error } = await supabase.from("apartments").select("id").order("name");
@@ -119,6 +146,10 @@ async function cleanup() {
     await supabase.from("sauna_reservations").delete().in("stay_id", fixture.stayIds);
     await supabase.from("stays").delete().in("id", fixture.stayIds);
   }
+  if (fixture.resourceIds.length) {
+    await supabase.from("sauna_reservations").delete().in("resource_id", fixture.resourceIds);
+    await supabase.from("resources").delete().in("id", fixture.resourceIds);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -137,15 +168,15 @@ async function main() {
     return `2099-06-${String(dayCounter++).padStart(2, "0")}`;
   }
 
-  await test("a stay's full 120-minute daily allowance can be used across multiple bookings (6 guests sharing one code)", async () => {
+  await test("a stay's full 60-minute daily allowance can be used across multiple bookings (guests sharing one code)", async () => {
     const testDate = freshDate();
     const { stay } = await createStay(apartmentA, "2099-06-10", "2099-06-20");
     const first = await book({
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "09:00",
-      durationMinutes: 60,
+      startTime: "16:00",
+      durationMinutes: 30,
     });
     assert.equal(first.error, null, `first booking should succeed: ${first.error?.message}`);
     fixture.reservationIds.push(first.data.id);
@@ -154,19 +185,19 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "10:00",
-      durationMinutes: 60,
+      startTime: "16:30",
+      durationMinutes: 30,
     });
     assert.equal(second.error, null, `second booking should succeed: ${second.error?.message}`);
     fixture.reservationIds.push(second.data.id);
 
-    // 120 minutes used — a third booking of any length must be rejected,
+    // 60 minutes used — a third booking of any length must be rejected,
     // regardless of which guest sharing the code makes the request.
     const third = await book({
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "11:00",
+      startTime: "17:00",
       durationMinutes: 30,
     });
     assert.equal(errCode(third.error), "DAILY_LIMIT_EXCEEDED");
@@ -179,19 +210,19 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "12:00",
-      durationMinutes: 90,
+      startTime: "16:00",
+      durationMinutes: 30,
     });
     assert.equal(a.error, null);
     fixture.reservationIds.push(a.data.id);
 
-    // 90 used, 30 remain — a 60-minute request must be rejected even though
+    // 30 used, 30 remain — a 60-minute request must be rejected even though
     // it comes from "a different guest" using the same stay/code.
     const b = await book({
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "14:00",
+      startTime: "17:00",
       durationMinutes: 60,
     });
     assert.equal(errCode(b.error), "DAILY_LIMIT_EXCEEDED");
@@ -207,7 +238,7 @@ async function main() {
       resourceId,
       date: testDate,
       startTime: "16:00",
-      durationMinutes: 90,
+      durationMinutes: 60,
     });
     assert.equal(a.error, null);
     fixture.reservationIds.push(a.data.id);
@@ -216,8 +247,8 @@ async function main() {
       stayId: stayB.id,
       resourceId,
       date: testDate,
-      startTime: "17:00", // overlaps 16:00-17:30
-      durationMinutes: 60,
+      startTime: "16:30", // overlaps 16:00-17:00
+      durationMinutes: 30,
     });
     assert.equal(errCode(b.error), "SLOT_UNAVAILABLE");
   });
@@ -232,15 +263,15 @@ async function main() {
         stayId: stayA.id,
         resourceId,
         date: testDate,
-        startTime: "19:00",
-        durationMinutes: 60,
+        startTime: "17:00",
+        durationMinutes: 30,
       }),
       book({
         stayId: stayB.id,
         resourceId,
         date: testDate,
-        startTime: "19:00",
-        durationMinutes: 60,
+        startTime: "17:00",
+        durationMinutes: 30,
       }),
     ]);
 
@@ -257,23 +288,23 @@ async function main() {
     const testDate = freshDate();
     const { stay } = await createStay(apartmentA, "2099-06-10", "2099-06-20");
 
-    // Two concurrent 90-minute requests at non-overlapping times: only one
-    // can fit under the 120-minute cap even though neither overlaps the
+    // Two concurrent 60-minute requests at non-overlapping times: only one
+    // can fit under the 60-minute cap even though neither overlaps the
     // other in time.
     const [a, b] = await Promise.all([
       book({
         stayId: stay.id,
         resourceId,
         date: testDate,
-        startTime: "06:00",
-        durationMinutes: 90,
+        startTime: "16:00",
+        durationMinutes: 60,
       }),
       book({
         stayId: stay.id,
         resourceId,
         date: testDate,
-        startTime: "08:00",
-        durationMinutes: 90,
+        startTime: "17:30",
+        durationMinutes: 60,
       }),
     ]);
 
@@ -292,7 +323,7 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "13:00",
+      startTime: "16:00",
       durationMinutes: 60,
     });
     assert.equal(a.error, null);
@@ -305,13 +336,13 @@ async function main() {
     });
     assert.equal(cancel.error, null);
 
-    // Same slot, same stay, full 120 minutes again — must succeed now.
+    // Same slot, same stay, full 60 minutes again — must succeed now.
     const rebook = await book({
       stayId: stay.id,
       resourceId,
       date: testDate,
-      startTime: "13:00",
-      durationMinutes: 120,
+      startTime: "16:00",
+      durationMinutes: 60,
     });
     assert.equal(rebook.error, null, `rebooking after cancellation should succeed: ${rebook.error?.message}`);
     fixture.reservationIds.push(rebook.data.id);
@@ -324,7 +355,7 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: "2099-07-09",
-      startTime: "10:00",
+      startTime: "16:00",
       durationMinutes: 30,
     });
     assert.equal(errCode(beforeCheckIn.error), "OUTSIDE_STAY");
@@ -333,7 +364,7 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: "2099-07-13",
-      startTime: "10:00",
+      startTime: "16:00",
       durationMinutes: 30,
     });
     assert.equal(errCode(onCheckOutDay.error), "OUTSIDE_STAY");
@@ -342,21 +373,21 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: "2099-07-10",
-      startTime: "10:00",
+      startTime: "16:00",
       durationMinutes: 30,
     });
     assert.equal(onCheckInDay.error, null, "the check-in day itself must be bookable");
     fixture.reservationIds.push(onCheckInDay.data.id);
   });
 
-  await test("reservations outside operating hours (06:00-22:00) are rejected", async () => {
+  await test("reservations outside operating hours (16:00-19:00) are rejected", async () => {
     const { stay } = await createStay(apartmentA, "2099-06-10", "2099-06-20");
 
     const tooEarly = await book({
       stayId: stay.id,
       resourceId,
       date: "2099-06-18",
-      startTime: "05:30",
+      startTime: "15:30",
       durationMinutes: 30,
     });
     assert.equal(errCode(tooEarly.error), "OUTSIDE_HOURS");
@@ -365,8 +396,8 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: "2099-06-18",
-      startTime: "21:30",
-      durationMinutes: 60, // would end at 22:30
+      startTime: "18:30",
+      durationMinutes: 60, // would end at 19:30
     });
     assert.equal(errCode(tooLate.error), "OUTSIDE_HOURS");
 
@@ -374,11 +405,69 @@ async function main() {
       stayId: stay.id,
       resourceId,
       date: "2099-06-18",
-      startTime: "21:00",
-      durationMinutes: 60, // ends exactly at 22:00 — allowed
+      startTime: "18:00",
+      durationMinutes: 60, // ends exactly at 19:00 — allowed
     });
     assert.equal(exactlyAtClose.error, null, "a reservation ending exactly at close time must be allowed");
     fixture.reservationIds.push(exactlyAtClose.data.id);
+  });
+
+  await test("durations other than 30 or 60 minutes are rejected", async () => {
+    const { stay } = await createStay(apartmentA, "2099-06-10", "2099-06-20");
+    const result = await book({
+      stayId: stay.id,
+      resourceId,
+      date: "2099-06-19",
+      startTime: "16:00",
+      durationMinutes: 90,
+    });
+    assert.equal(errCode(result.error), "INVALID_DURATION");
+  });
+
+  await test("guest bookings less than 1 day in advance are rejected, but next-day and later are allowed", async () => {
+    // Uses a disposable resource (not the real sauna) since this test must
+    // book real near-term dates — see createTestResource().
+    const testResourceId = await createTestResource();
+    const today = todayInTimeZone(TIMEZONE);
+    const tomorrow = addDaysISO(today, 1);
+    const { stay } = await createStay(apartmentA, today, addDaysISO(today, 10));
+
+    const sameDay = await book({
+      stayId: stay.id,
+      resourceId: testResourceId,
+      date: today,
+      startTime: "10:00",
+      durationMinutes: 30,
+    });
+    assert.equal(errCode(sameDay.error), "LEAD_TIME_REQUIRED");
+
+    const nextDay = await book({
+      stayId: stay.id,
+      resourceId: testResourceId,
+      date: tomorrow,
+      startTime: "10:00",
+      durationMinutes: 30,
+    });
+    assert.equal(nextDay.error, null, `booking for tomorrow should succeed: ${nextDay.error?.message}`);
+    fixture.reservationIds.push(nextDay.data.id);
+  });
+
+  await test("admin-created reservations are exempt from the 1-day lead-time requirement", async () => {
+    const testResourceId = await createTestResource();
+    const today = todayInTimeZone(TIMEZONE);
+    const { stay } = await createStay(apartmentA, today, addDaysISO(today, 10));
+
+    const result = await supabase.rpc("book_sauna_reservation", {
+      p_stay_id: stay.id,
+      p_resource_id: testResourceId,
+      p_reservation_date: today,
+      p_start_time: "10:00",
+      p_duration_minutes: 30,
+      p_is_admin: true,
+      p_admin_user_id: null,
+    });
+    assert.equal(result.error, null, `admin same-day booking should succeed: ${result.error?.message}`);
+    fixture.reservationIds.push(result.data.id);
   });
 
   await test("a stay's access code cannot be used to look up a different stay", async () => {
@@ -436,16 +525,17 @@ async function main() {
   });
 
   await test("daily allowance aggregation uses the Europe/Ljubljana calendar date, not UTC", async () => {
-    // 23:30 Ljubljana in late June (CEST, UTC+2) is 21:30 UTC the same day —
-    // pick a time where a naive UTC-based grouping would NOT shift the date,
-    // and instead assert the stored instant matches the expected UTC offset,
-    // proving the conversion path is timezone-aware rather than coincidence.
+    // In late June, Ljubljana is UTC+2 (CEST), so 16:00 local is 14:00 UTC —
+    // a naive UTC-based grouping would still land on the same calendar day
+    // here, so this instead directly asserts the stored instant converts
+    // back to the exact local wall-clock time, proving the conversion path
+    // is timezone-aware rather than coincidentally correct.
     const { stay } = await createStay(apartmentA, "2099-06-10", "2099-06-20");
     const result = await book({
       stayId: stay.id,
       resourceId,
       date: "2099-06-19",
-      startTime: "06:00",
+      startTime: "16:00",
       durationMinutes: 30,
     });
     assert.equal(result.error, null);
@@ -463,7 +553,7 @@ async function main() {
          from sauna_reservations where id = $1`,
         [result.data.id]
       );
-      assert.equal(rows[0].local, "2099-06-19 06:00");
+      assert.equal(rows[0].local, "2099-06-19 16:00");
     } finally {
       await pg.end();
     }

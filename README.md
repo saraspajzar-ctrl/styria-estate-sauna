@@ -31,7 +31,8 @@ scripts/run-tests.ts        acceptance tests against the real database
 ```
 
 **Why business logic lives in SQL functions, not application code:** every
-booking rule (overlap, the 120-minute daily cap per stay, operating hours)
+booking rule (overlap, the 60-minute daily cap per stay, the 16:00–19:00
+operating window, the 1-day guest lead time)
 is enforced inside `book_sauna_reservation` /
 `update_sauna_reservation` / `cancel_sauna_reservation` in
 `supabase/migrations/0003_functions.sql`, each running as one Postgres
@@ -54,7 +55,13 @@ working codes. Submitting the code at `/sauna` issues a signed, HttpOnly
 cookie containing only the stay's id; every guest API call is authorized from
 that cookie, never from a client-supplied id, so a guest cannot view another
 stay by editing a request. All guests on one booking share one code, one
-stay, and one 120-minute daily allowance.
+stay, and one 60-minute daily allowance.
+
+Guests must book at least 1 day in advance (configurable via
+`MIN_ADVANCE_DAYS` in `lib/config.ts`, enforced in the SQL booking
+functions) — there's no upper bound on how far ahead they can book. Admin
+staff are exempt, so they can still add a last-minute reservation on a
+guest's behalf.
 
 ## Local setup
 
@@ -142,11 +149,16 @@ npm test
 These are integration tests that run against your **real** configured
 Supabase database (same rules as production — nothing is mocked), using
 far-future dates as fixtures and cleaning up after themselves. Covers: the
-shared 120-minute stay allowance, overlap prevention across apartments,
+shared 60-minute stay allowance, overlap prevention across apartments,
 concurrent-request safety (both for overlap and for the daily cap),
 cancellation releasing allowance, stay-window and operating-hours
-boundaries, access-code isolation between stays, code revocation, rate
-limiting, and Ljubljana-timezone date handling.
+boundaries, the 1-day guest lead time (and the admin exemption from it),
+access-code isolation between stays, code revocation, rate limiting, and
+Ljubljana-timezone date handling. The two lead-time tests book real
+near-term dates, so they run against a disposable throwaway resource
+instead of the real sauna — see `createTestResource()` in
+`scripts/run-tests.ts` — to guarantee they can never collide with or appear
+on an actual guest's calendar.
 
 Set `TEST_BASE_URL=http://localhost:3000` (with `npm run dev` running in
 another terminal) to additionally check that admin API routes reject
@@ -167,10 +179,10 @@ migrated schema.
 ## Changing business rules
 
 Everything in `lib/config.ts` is mirrored client-side for UX only; the
-authoritative values live in `supabase/migrations/0003_functions.sql`
-(duration limits, operating hours) and the `resources` /
-`apartments` tables (capacity, open/close time — edit via SQL or add an
-admin UI for it later). To add a third apartment, insert a row into
+authoritative values live in the SQL booking functions (duration limits,
+daily cap, lead time — latest in `supabase/migrations/0006_shorter_hours_allowance_leadtime.sql`)
+and the `resources` / `apartments` tables (capacity, open/close time — edit
+via SQL or add an admin UI for it later). To add a third apartment, insert a row into
 `apartments`; nothing in the codebase hardcodes apartment names or count. To
 add a second wellness resource (e.g. a hot tub), insert a row into
 `resources` — the schedule, booking functions, and exclusion constraint are

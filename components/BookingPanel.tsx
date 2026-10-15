@@ -129,7 +129,7 @@ export function BookingPanel({
               Daily sauna allowance reached.
             </p>
           )}
-          {allowance.remainingMinutes > 0 && allowance.remainingMinutes < 120 && (
+          {allowance.remainingMinutes > 0 && allowance.remainingMinutes < allowance.limitMinutes && (
             <p className="text-xs text-ink-soft">
               {formatMinutesLabel(allowance.remainingMinutes)} remaining today for{" "}
               {apartmentName}.
@@ -177,7 +177,8 @@ export function BookingPanel({
           <div className="rounded-xl border border-line px-4 py-3 text-xs text-ink-soft">
             Daily sauna allowance used:{" "}
             <span className="font-semibold text-ink">
-              {formatMinutesLabel(allowance.usedMinutes + duration)} / 2h
+              {formatMinutesLabel(allowance.usedMinutes + duration)} /{" "}
+              {formatMinutesLabel(allowance.limitMinutes)}
             </span>
           </div>
 
